@@ -1,0 +1,573 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Solar Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f7fc;
+            color: #172033;
+        }
+
+        header {
+            background: linear-gradient(120deg, #102b52, #176b87);
+            color: white;
+            padding: 28px 7%;
+        }
+
+        header h1 { font-size: 29px; margin-bottom: 8px; }
+        header p { color: #d5e8f5; font-size: 14px; }
+
+        .container {
+            max-width: 1250px;
+            margin: 30px auto;
+            padding: 0 22px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 15px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 18px rgba(20,40,70,0.06);
+        }
+
+        .section h2 { font-size: 20px; margin-bottom: 18px; }
+
+        .muted {
+            color: #718096;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+
+        .control label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: #159b79;
+        }
+
+        .primary-btn {
+            background: #159b79;
+            color: white;
+            border: none;
+            border-radius: 9px;
+            padding: 13px 22px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 22px;
+        }
+
+        .primary-btn:hover { background: #10785e; }
+
+        .metrics, .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        .metric, .sensor {
+            background: #f7faff;
+            border: 1px solid #e7edf5;
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        .metric p, .sensor span {
+            color: #718096;
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        .metric h3 {
+            font-size: 24px;
+            color: #176b87;
+        }
+
+        .panel-visual {
+            min-height: 290px;
+            border-radius: 13px;
+            background: linear-gradient(
+                #c9e9fa,
+                #edf8fc 70%,
+                #b7d9c3 70%
+            );
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 900px;
+        }
+
+        .sun {
+            position: absolute;
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            background: #ffc84a;
+            top: 25px;
+            left: var(--sun-position);
+            box-shadow: 0 0 35px #ffdb75;
+            transition: left 0.8s ease;
+        }
+
+        .panel {
+            position: relative;
+            z-index: 2;
+            width: 210px;
+            height: 100px;
+            background: repeating-linear-gradient(
+                90deg,
+                #174d78 0,
+                #174d78 49px,
+                #9bc4df 50px,
+                #9bc4df 53px
+            );
+            border: 5px solid #d9e8f4;
+            border-radius: 5px;
+            box-shadow: 0 12px 20px #45687966;
+            transform-origin: center center;
+            animation: panelTilt 1.5s ease-out forwards;
+        }
+
+        @keyframes panelTilt {
+            from {
+                transform: perspective(600px) rotateX(0deg);
+            }
+            to {
+                transform: perspective(600px) rotateX(var(--panel-angle));
+            }
+        }
+
+        .panel-stand {
+            position: absolute;
+            z-index: 1;
+            width: 10px;
+            height: 85px;
+            background: linear-gradient(#526777, #263e50);
+            top: 175px;
+            border-radius: 4px;
+        }
+
+        .panel-base {
+            position: absolute;
+            z-index: 1;
+            width: 100px;
+            height: 9px;
+            background: #526777;
+            top: 254px;
+            border-radius: 5px;
+        }
+
+        .sensor { text-align: center; }
+        .sensor span { display: block; }
+
+        .sensor strong {
+            font-size: 20px;
+            color: #176b87;
+            display: block;
+            margin: 8px 0;
+        }
+
+        .status {
+            background: #e9f8f1;
+            color: #14734e;
+            border-radius: 10px;
+            padding: 15px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .motor-status {
+            background: #f5f9fd;
+            border: 1px solid #e7edf5;
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .motor-status h3 {
+            color: #159b79;
+            font-size: 23px;
+            margin: 8px 0;
+        }
+
+        .comparison-text {
+            line-height: 1.9;
+            color: #536174;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .chart-card {
+            background: #fbfdff;
+            border: 1px solid #e7edf5;
+            border-radius: 12px;
+            padding: 18px;
+            min-width: 0;
+        }
+
+        .chart-card h3 { font-size: 16px; margin-bottom: 7px; }
+
+        .chart-card p {
+            color: #718096;
+            font-size: 12px;
+            margin-bottom: 16px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 270px;
+            width: 100%;
+        }
+
+        .full-chart { grid-column: 1 / -1; }
+
+        footer {
+            text-align: center;
+            padding: 25px;
+            color: #8491a3;
+            font-size: 12px;
+        }
+
+        @media (max-width: 800px) {
+            .metrics, .sensor-grid { grid-template-columns: repeat(2, 1fr); }
+            .chart-grid, .controls { grid-template-columns: 1fr; }
+            .full-chart { grid-column: auto; }
+        }
+
+        @media (max-width: 480px) {
+            .metric h3 { font-size: 19px; }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>☀️ Smart Solar Tracker</h1>
+    <p>Solar tracking simulation and energy performance dashboard</p>
+</header>
+
+<div class="container">
+
+    <section class="section">
+        <h2>Simulation Controls</h2>
+        <p class="muted">Adjust the virtual environment and run a simulation.</p>
+
+        <form method="GET" action="/">
+            <div class="controls">
+                <div class="control">
+                    <label>
+                        <span>Time of Day</span>
+                        <span id="hourValue">{{ selected_hour }}:00</span>
+                    </label>
+                    <input type="range" name="hour" id="hour"
+                           min="6" max="18" value="{{ selected_hour }}"
+                           oninput="document.getElementById('hourValue').textContent=this.value+':00'">
+                </div>
+
+                <div class="control">
+                    <label>
+                        <span>Cloud Cover</span>
+                        <span id="cloudValue">{{ selected_cloud }}%</span>
+                    </label>
+                    <input type="range" name="cloud" id="cloud"
+                           min="0" max="100" value="{{ selected_cloud }}"
+                           oninput="document.getElementById('cloudValue').textContent=this.value+'%'">
+                </div>
+            </div>
+            <button class="primary-btn" type="submit">Run Simulation →</button>
+        </form>
+    </section>
+
+    <section class="section">
+        <h2>Virtual Solar Panel</h2>
+        <p class="muted">3D panel tilt visualization driven by the virtual motor.</p>
+
+        <div class="panel-visual"
+             style="--sun-position: {{ ((selected_hour - 6) / 12 * 80 + 5)|int }}%;
+                    --panel-angle: {{ (simulation.motor.current_angle * 2.5)|int }}deg;">
+            <div class="sun"></div>
+            <div class="panel"></div>
+            <div class="panel-stand"></div>
+            <div class="panel-base"></div>
+        </div>
+
+        <p class="comparison-text" style="margin-top:15px;">
+            Simulated motor angle:
+            <strong>{{ simulation.motor.current_angle }}°</strong>
+        </p>
+    </section>
+
+    <section class="section">
+        <h2>Power Overview</h2>
+        <div class="metrics">
+            <div class="metric">
+                <p>Sunlight Intensity</p>
+                <h3>{{ simulation.sunlight.sunlight_intensity }} <small>W/m²</small></h3>
+            </div>
+            <div class="metric">
+                <p>Generated Power</p>
+                <h3>{{ simulation.power.power }} <small>W</small></h3>
+            </div>
+            <div class="metric">
+                <p>Voltage</p>
+                <h3>{{ simulation.power.voltage }} <small>V</small></h3>
+            </div>
+            <div class="metric">
+                <p>Current</p>
+                <h3>{{ simulation.power.current }} <small>A</small></h3>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>Virtual LDR Sensor Readings</h2>
+        <p class="muted">Simulated readings from four virtual light sensors.</p>
+        <div class="sensor-grid">
+            {% for name, value in simulation.sensors.items() %}
+            <div class="sensor">
+                <span>{{ name.replace('_', ' ')|title }}</span>
+                <strong>{{ value }}</strong>
+                <span>W/m²</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>Tracking Status</h2>
+        <div class="status">
+            {% for movement in simulation.tracking.movement %}
+                {{ movement }}{% if not loop.last %} · {% endif %}
+            {% endfor %}
+        </div>
+        <p class="comparison-text">
+            Vertical difference:
+            <strong>{{ simulation.tracking.vertical_difference }}</strong>
+            &nbsp; | &nbsp;
+            Horizontal difference:
+            <strong>{{ simulation.tracking.horizontal_difference }}</strong>
+        </p>
+    </section>
+
+    <section class="section">
+        <h2>⚙️ Motor Simulation Status</h2>
+        <p class="muted">Values from the virtual motor simulator.</p>
+        <div class="metrics">
+            <div class="motor-status">
+                <p>Current Angle</p>
+                <h3>{{ simulation.motor.current_angle }}°</h3>
+            </div>
+            <div class="motor-status">
+                <p>Target Angle</p>
+                <h3>{{ simulation.motor.target_angle }}°</h3>
+            </div>
+            <div class="motor-status">
+                <p>Response Time</p>
+                <h3>{{ simulation.motor.response_time }} s</h3>
+            </div>
+            <div class="motor-status">
+                <p>Motor Status</p>
+                <h3>{{ simulation.motor.status }}</h3>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>Fixed vs Tracking Panel</h2>
+        <div class="metrics">
+            <div class="metric">
+                <p>Tracking Energy</p>
+                <h3>{{ comparison.tracking_energy }} <small>Wh*</small></h3>
+            </div>
+            <div class="metric">
+                <p>Fixed Panel Energy</p>
+                <h3>{{ comparison.fixed_energy }} <small>Wh*</small></h3>
+            </div>
+            <div class="metric">
+                <p>Energy Gain</p>
+                <h3>{{ comparison.energy_gain }} <small>Wh*</small></h3>
+            </div>
+            <div class="metric">
+                <p>Improvement</p>
+                <h3>{{ comparison.improvement_percentage }}%</h3>
+            </div>
+        </div>
+        <p class="muted" style="margin-top:15px;">
+            *Illustrative estimates using the current simplified comparison model.
+        </p>
+    </section>
+
+    <section class="section">
+        <h2>Energy Analytics</h2>
+        <div class="metrics">
+            <div class="metric">
+                <p>Daily Energy Estimate</p>
+                <h3>{{ daily.total_energy_wh }} <small>Wh*</small></h3>
+            </div>
+            <div class="metric">
+                <p>Peak Power</p>
+                <h3>{{ daily.peak_power_w }} <small>W</small></h3>
+            </div>
+            <div class="metric">
+                <p>Average Power</p>
+                <h3>{{ daily.average_power_w }} <small>W</small></h3>
+            </div>
+            <div class="metric">
+                <p>Peak Generation Hour</p>
+                <h3>{{ daily.best_hour }}:00</h3>
+            </div>
+        </div>
+        <p class="muted" style="margin-top:15px;">
+            *Daily energy is an illustrative estimate from hourly power samples.
+        </p>
+    </section>
+
+    <section class="section">
+        <h2>Interactive Performance Charts</h2>
+        <p class="muted">Explore simulated power output and performance comparisons.</p>
+
+        <div class="chart-grid">
+            <div class="chart-card full-chart">
+                <h3>Hourly Solar Power Generation</h3>
+                <p>Estimated power output at each simulated hour.</p>
+                <div class="chart-container">
+                    <canvas id="hourlyChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3>Fixed vs Tracking Comparison</h3>
+                <p>Estimated energy comparison using the current model.</p>
+                <div class="chart-container">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3>Cloud Cover Impact</h3>
+                <p>Estimated power at the selected hour under different cloud conditions.</p>
+                <div class="chart-container">
+                    <canvas id="cloudChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<footer>
+    Smart Solar Tracker | Software-Based Simulation Project
+    <br>
+    Virtual sensors, motor and tracking behaviour are simulated; no physical hardware is connected.
+</footer>
+
+<script>
+    const hourlyData = {{ daily.hourly_data | tojson }};
+    const comparisonData = {{ comparison | tojson }};
+    const selectedHour = {{ selected_hour }};
+
+    Chart.defaults.font.family = "Arial";
+    Chart.defaults.color = "#718096";
+
+    new Chart(document.getElementById("hourlyChart"), {
+        type: "line",
+        data: {
+            labels: hourlyData.map(item => item.hour + ":00"),
+            datasets: [{
+                label: "Power (W)",
+                data: hourlyData.map(item => item.power),
+                borderColor: "#159b79",
+                backgroundColor: "rgba(21,155,121,0.13)",
+                borderWidth: 3,
+                fill: true,
+                tension: 0.35
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: "Power (W)" } },
+                x: { title: { display: true, text: "Time" } }
+            }
+        }
+    });
+
+    new Chart(document.getElementById("comparisonChart"), {
+        type: "bar",
+        data: {
+            labels: ["Fixed Panel", "Tracking Panel"],
+            datasets: [{
+                label: "Estimated Energy (Wh*)",
+                data: [comparisonData.fixed_energy, comparisonData.tracking_energy],
+                backgroundColor: ["#8ba4bb", "#159b79"],
+                borderRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    const cloudLevels = [0, 20, 40, 60, 80, 100];
+    const sunlightFactor = Math.sin(Math.PI * (selectedHour - 6) / 12);
+
+    const cloudPower = cloudLevels.map(cloud => {
+        const intensity = 1000 * sunlightFactor * (1 - cloud / 100);
+        return Number((intensity * 1.6 * 0.20).toFixed(2));
+    });
+
+    new Chart(document.getElementById("cloudChart"), {
+        type: "line",
+        data: {
+            labels: cloudLevels.map(value => value + "%"),
+            datasets: [{
+                label: "Estimated Power (W)",
+                data: cloudPower,
+                borderColor: "#e4a32c",
+                backgroundColor: "rgba(228,163,44,0.15)",
+                borderWidth: 3,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+</script>
+
+</body>
+</html>
